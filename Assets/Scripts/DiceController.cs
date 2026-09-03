@@ -9,7 +9,7 @@ public class DiceController : MonoBehaviour, IPointerClickHandler
     public int DiceIndex;
     private TextMeshProUGUI faceText;
 
-    public Action<int> ToggleSelection;
+    public Action<int> OnToggleSelection;
 
     private void Awake()
     {
@@ -30,7 +30,7 @@ public class DiceController : MonoBehaviour, IPointerClickHandler
 
     public void ToggleSelect()
     {
-        ToggleSelection?.Invoke(DiceIndex);
+        OnToggleSelection?.Invoke(DiceIndex);
     }
 
     public void OnPointerClick(PointerEventData eventData)

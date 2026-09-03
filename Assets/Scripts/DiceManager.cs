@@ -1,5 +1,6 @@
 using JetBrains.Annotations;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class DiceManager : MonoBehaviour
@@ -9,6 +10,7 @@ public class DiceManager : MonoBehaviour
     [Header("Visual Settings")]
     public Vector2 SpawnOrigin = new Vector2(0, 0);
     public float XSpacing = 1.0f;
+    [SerializeField] private FarkleGame farkleGame;
 
     [SerializeField] private List<DiceController> spawnedDice = new List<DiceController>();
 
@@ -20,6 +22,7 @@ public class DiceManager : MonoBehaviour
         {
             if (spawnedDice[i] != null)
             {
+                spawnedDice[i].OnToggleSelection -= ToggleDice;
                 Destroy(spawnedDice[i].gameObject);
             }
             spawnedDice.RemoveAt(i);
@@ -34,6 +37,7 @@ public class DiceManager : MonoBehaviour
             DiceController newDice = Instantiate(dicePrefab, spawnPosition, Quaternion.identity, transform);
 
             spawnedDice.Add(newDice);
+            newDice.OnToggleSelection += ToggleDice;
         }
     }
 
@@ -68,16 +72,17 @@ public class DiceManager : MonoBehaviour
 
     public void Reroll()
     {
-
+        farkleGame.RerollPlayerDice();
     }
 
     public void Score()
     {
-
+        farkleGame.ScorePlayerDice(chosenDiceIndex.ToArray());
+        chosenDiceIndex.Clear();
     }
 
     public void Bank()
     {
-
+        farkleGame.BankPlayerScore();
     }
 }

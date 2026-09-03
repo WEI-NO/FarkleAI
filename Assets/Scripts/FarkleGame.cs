@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 public enum FarkleTurnState
@@ -23,7 +24,7 @@ public class FarkleGame : MonoBehaviour
     public DiceManager BotDiceManager;
 
     [Header("Game Events")]
-    public Action test;
+    public bool PlayerScoredThisTurn = false;
 
     public void Start()
     {
@@ -75,8 +76,35 @@ public class FarkleGame : MonoBehaviour
             {
                 // Bot's turn logic here
                 // Simulate bot actions
+                int[] rolledDice = GameState.RollBotDice(GameState.BotDiceRemaining);
+                print($"Bot Rolled {GameState.BotDiceRemaining}");
+                BotDiceManager.SpawnDice(rolledDice.Length);
+                BotDiceManager.SetDice(rolledDice);
+
+                float[] observation = GameState.GetObservation();
+                bool[] actionMask = GameState.GetBotActionMask();
+
+                int result = BotModelLoader.Predict(observation, actionMask);
+                bool bank = result <= 63;
                 yield return new WaitForSeconds(1f); // Simulate thinking time
-                GameState.TurnState = FarkleTurnState.PlayerTurn; // Switch back to player's turn
+
+                int[] indexes = TranslateBotAction(result);
+                List<int> chosenDice = new List<int>(ConvertToSelectedDice(indexes, GameState.BotCurrentDice));
+                if (FarkleGameState.TryCalculateScore(chosenDice, out int score))
+                {
+                    GameState.BotUnbankedScore += score;
+                    GameState.BotDiceRemaining -= chosenDice.Count;
+                    if (GameState.BotDiceRemaining <= 0)
+                    {
+                        GameState.BotDiceRemaining = FarkleGameState.MaxDiceRolls;
+                    }
+                }
+                
+                if (bank)
+                {
+                    EndBotTurn();
+                }
+
             }
         }
         yield return null;
@@ -87,8 +115,95 @@ public class FarkleGame : MonoBehaviour
         GameState.Reset();
     }
 
+    public bool RerollPlayerDice()
+    {
+        if (!PlayerScoredThisTurn) return false;
 
+        if (GameState.PlayerDiceRemaining > 0)
+        {    
+            var rolledDice = GameState.RollPlayerDice(GameState.PlayerDiceRemaining);
+            PlayerDiceManager.SpawnDice(rolledDice.Length);
+            PlayerDiceManager.SetDice(rolledDice);
+            PlayerScoredThisTurn = false;
+            return true;
+        }
+        return false;
+    }
 
+    public bool BankPlayerScore()
+    {
+        if (PlayerScoredThisTurn)
+        {
+            EndPlayerTurn();
+            return true;
+        }
+        return false;
+    }
+
+    public bool ScorePlayerDice(int[] chosenDiceIndex)
+    {
+        if (PlayerScoredThisTurn) return false;
+
+        List<int> chosenDice = new List<int>(ConvertToSelectedDice(chosenDiceIndex, GameState.PlayerCurrentDice));
+        if (FarkleGameState.TryCalculateScore(chosenDice, out int score))
+        {
+            GameState.PlayerUnbankedScore += score;
+            PlayerScoredThisTurn = true;
+            GameState.PlayerDiceRemaining -= chosenDiceIndex.Length;
+            if (GameState.PlayerDiceRemaining <= 0)
+            {
+                GameState.PlayerDiceRemaining = FarkleGameState.MaxDiceRolls;
+            }
+            return true;
+        }
+        print("Invalid Dice Selection");
+        return false;
+    }
+
+    public int[] ConvertToSelectedDice(int[] selectedIndex, int[] dice)
+    {
+        List<int> chosenDice = new List<int>();
+        for (int i = 0; i < selectedIndex.Length; i++)
+        {
+            int index = selectedIndex[i];
+            if (index < dice.Length)
+            {
+                chosenDice.Add(dice[index]);
+            }
+        }
+
+        return chosenDice.ToArray();
+    }
+
+    public void EndPlayerTurn()
+    {
+        GameState.PlayerScore = GameState.PlayerUnbankedScore;
+        PlayerScoredThisTurn = false;
+        GameState.TurnState = FarkleTurnState.BotTurn;
+        GameState.ResetTurn();
+    }
+
+    public void EndBotTurn()
+    {
+        GameState.BotBankedScore += GameState.BotUnbankedScore;
+
+        GameState.TurnState = FarkleTurnState.PlayerTurn;
+        GameState.ResetTurn();
+    }
+
+    public int[] TranslateBotAction(int bit, int bitCount = 6)
+    {
+        List<int> indexes = new List<int>();
+
+        for (int i = 0; i < bitCount; i++)
+        {
+            if ((bit & (1 << i)) != 0)
+            {
+                indexes.Add(i);
+            }
+        }
+        return indexes.ToArray();
+    }
 }
 
 [System.Serializable]
@@ -115,14 +230,17 @@ public class FarkleGameState
     // player dice
     public int[] PlayerCurrentDice = new int[MaxDiceRolls];
     public int PlayerDiceRemaining = 6;
+    public int PlayerUnbankedScore = 0;
     public FarkleTurnState TurnState = FarkleTurnState.PlayerTurn;
 
     public FarkleGameState Reset()
     {
         BotBankedScore = 0;
         BotUnbankedScore = 0;
-        BotDiceRemaining = 6;
+        BotDiceRemaining = MaxDiceRolls;
         PlayerScore = 0;
+        PlayerUnbankedScore = 0;
+        PlayerDiceRemaining = MaxDiceRolls;
         TurnState = FarkleTurnState.PlayerTurn;
         // Reset dice
         for (int i = 0; i < MaxDiceRolls; i++)
@@ -131,6 +249,14 @@ public class FarkleGameState
             PlayerCurrentDice[i] = 0;
         }
         return this;
+    }
+
+    public void ResetTurn()
+    {
+        BotUnbankedScore = 0;
+        PlayerUnbankedScore = 0;
+        BotDiceRemaining = MaxDiceRolls;
+        PlayerDiceRemaining = MaxDiceRolls;
     }
 
     #region Dice Rolls
@@ -243,7 +369,7 @@ public class FarkleGameState
         return selectedDice;
     }
 
-    private bool TryCalculateScore(List<int> dice, out int score)
+    public static bool TryCalculateScore(List<int> dice, out int score)
     {
         score = 0;
 
