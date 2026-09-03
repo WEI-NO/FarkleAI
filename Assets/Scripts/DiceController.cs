@@ -1,16 +1,41 @@
+using System;
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
-public class DiceController : MonoBehaviour
+public class DiceController : MonoBehaviour, IPointerClickHandler
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    [Header("Dice References")]
+    public int DiceIndex;
+    private TextMeshProUGUI faceText;
+
+    public Action<int> ToggleSelection;
+
+    private void Awake()
     {
-        
+        faceText = GetComponentInChildren<TextMeshProUGUI>();
     }
 
-    // Update is called once per frame
-    void Update()
+    public void SetFace(int face, int diceIndex)
     {
-        
+        DiceIndex = diceIndex;
+        if (faceText == null)
+        {
+            Debug.LogError("Face Text reference is not assigned");
+            return;
+        }
+
+        faceText.text = face.ToString();
+    }
+
+    public void ToggleSelect()
+    {
+        ToggleSelection?.Invoke(DiceIndex);
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        ToggleSelect();
+        //print("Clicked " + DiceIndex.ToString());
     }
 }

@@ -19,6 +19,9 @@ public class FarkleGame : MonoBehaviour
     [Header("Game States")]
     public FarkleGameState GameState = new FarkleGameState();
 
+    public DiceManager PlayerDiceManager;
+    public DiceManager BotDiceManager;
+
     [Header("Game Events")]
     public Action test;
 
@@ -26,24 +29,26 @@ public class FarkleGame : MonoBehaviour
     {
         UnityEngine.Random.InitState(Seed);
 
-        ResetGame();
-        var botDice = GameState.RollBotDice(FarkleGameState.MaxDiceRolls);
-        for (int i = 0; i < botDice.Length; i++)
-        {
-            Debug.Log($"Bot Dice {i + 1}: {botDice[i]}");
-        }
+        StartGame();
 
-        var mask = GameState.GetBotActionMask();
-        for (int i = 0; i < mask.Length; i++)
-        {
-            Debug.Log($"Action Mask {i}: {mask[i]}");
-        }
+        //ResetGame();
+        //var botDice = GameState.RollBotDice(FarkleGameState.MaxDiceRolls);
+        //for (int i = 0; i < botDice.Length; i++)
+        //{
+        //    Debug.Log($"Bot Dice {i + 1}: {botDice[i]}");
+        //}
 
-        var observation = GameState.GetObservation();
+        //var mask = GameState.GetBotActionMask();
+        //for (int i = 0; i < mask.Length; i++)
+        //{
+        //    Debug.Log($"Action Mask {i}: {mask[i]}");
+        //}
 
-        int predictedAction = BotModelLoader.Predict(observation, mask);
-        print("Predicted Action: " + predictedAction);
-        print("Described Action: " + ONNXModelLoader.DescribeAction(predictedAction, GameState.BotCurrentDice));
+        //var observation = GameState.GetObservation();
+
+        //int predictedAction = BotModelLoader.Predict(observation, mask);
+        //print("Predicted Action: " + predictedAction);
+        //print("Described Action: " + ONNXModelLoader.DescribeAction(predictedAction, GameState.BotCurrentDice));
     }
 
     public void StartGame()
@@ -60,6 +65,10 @@ public class FarkleGame : MonoBehaviour
             {
                 // Player's turn logic here
                 // Wait for player input or actions
+                int[] rolledDice = GameState.RollPlayerDice(GameState.PlayerDiceRemaining);
+                PlayerDiceManager.SpawnDice(rolledDice.Length);
+                PlayerDiceManager.SetDice(rolledDice);
+
                 yield return new WaitUntil(() => GameState.TurnState != FarkleTurnState.PlayerTurn);
             }
             else if (GameState.TurnState == FarkleTurnState.BotTurn)
