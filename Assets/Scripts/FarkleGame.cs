@@ -77,7 +77,8 @@ public class FarkleGame : MonoBehaviour
                 // Bot's turn logic here
                 // Simulate bot actions
                 int[] rolledDice = GameState.RollBotDice(GameState.BotDiceRemaining);
-                print($"Bot Rolled {GameState.BotDiceRemaining}");
+                print($"Bot Rolled {GameState.BotCurrentDice}");
+
                 BotDiceManager.SpawnDice(rolledDice.Length);
                 BotDiceManager.SetDice(rolledDice);
 
@@ -86,7 +87,7 @@ public class FarkleGame : MonoBehaviour
 
                 int result = BotModelLoader.Predict(observation, actionMask);
                 bool bank = result <= 63;
-                yield return new WaitForSeconds(1f); // Simulate thinking time
+                yield return new WaitForSeconds(3f); // Simulate thinking time
 
                 int[] indexes = TranslateBotAction(result);
                 List<int> chosenDice = new List<int>(ConvertToSelectedDice(indexes, GameState.BotCurrentDice));
@@ -99,7 +100,8 @@ public class FarkleGame : MonoBehaviour
                         GameState.BotDiceRemaining = FarkleGameState.MaxDiceRolls;
                     }
                 }
-                
+
+                yield return new WaitForSeconds(2f);
                 if (bank)
                 {
                     EndBotTurn();

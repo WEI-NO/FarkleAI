@@ -64,9 +64,12 @@ public class DiceManager : MonoBehaviour
         if (chosenDiceIndex.Contains(index))
         {
             chosenDiceIndex.Remove(index);
-        } else
+            spawnedDice[index].SetSelected(false);
+        }
+        else
         {
             chosenDiceIndex.Add(index);
+            spawnedDice[index].SetSelected(true);
         }
     }
 

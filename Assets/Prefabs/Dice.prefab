@@ -194,12 +194,12 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 1
+  m_fontSize: 0.85
   m_fontSizeBase: 1
   m_fontWeight: 400
-  m_enableAutoSizing: 0
-  m_fontSizeMin: 18
-  m_fontSizeMax: 72
+  m_enableAutoSizing: 1
+  m_fontSizeMin: 0.01
+  m_fontSizeMax: 1
   m_fontStyle: 0
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
@@ -284,6 +284,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2acd5aad7a434cb4f8f3e17b36b8783c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  DiceIndex: 0
+  diceImage: {fileID: 0}
+  selectedColor: {r: 0.27935302, g: 0.25922626, b: 0.3207547, a: 1}
+  unselectedColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &8246100936713156699
 GameObject:
   m_ObjectHideFlags: 0
