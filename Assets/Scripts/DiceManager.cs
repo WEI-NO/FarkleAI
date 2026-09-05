@@ -18,6 +18,7 @@ public class DiceManager : MonoBehaviour
 
     public void SpawnDice(int count)
     {
+        chosenDiceIndex.Clear();
         for (int i = spawnedDice.Count - 1; i >= 0; i--)
         {
             if (spawnedDice[i] != null)
@@ -81,6 +82,10 @@ public class DiceManager : MonoBehaviour
     public void Score()
     {
         farkleGame.ScorePlayerDice(chosenDiceIndex.ToArray());
+        foreach (int i in chosenDiceIndex)
+        {
+            spawnedDice[i].SetSelected(false);
+        }
         chosenDiceIndex.Clear();
     }
 

@@ -1,3 +1,4 @@
+using JetBrains.Annotations;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -39,7 +40,7 @@ public class FarkleGame : MonoBehaviour
         //    Debug.Log($"Bot Dice {i + 1}: {botDice[i]}");
         //}
 
-        //var mask = GameState.GetBotActionMask();
+        //var mask = GameState.GetActionMask();
         //for (int i = 0; i < mask.Length; i++)
         //{
         //    Debug.Log($"Action Mask {i}: {mask[i]}");
@@ -60,7 +61,7 @@ public class FarkleGame : MonoBehaviour
 
     private IEnumerator GameLoop()
     {
-        while (GameState.PlayerScore < FarkleGameState.MaxScore && GameState.BotBankedScore < FarkleGameState.MaxScore)
+        while (GameState.PlayerBankedScore < FarkleGameState.MaxScore && GameState.BotBankedScore < FarkleGameState.MaxScore)
         {
             if (GameState.TurnState == FarkleTurnState.PlayerTurn)
             {
@@ -69,6 +70,22 @@ public class FarkleGame : MonoBehaviour
                 int[] rolledDice = GameState.RollPlayerDice(GameState.PlayerDiceRemaining);
                 PlayerDiceManager.SpawnDice(rolledDice.Length);
                 PlayerDiceManager.SetDice(rolledDice);
+
+                bool[] actionMask = GameState.GetActionMask(
+                    GameState.PlayerDiceRemaining,
+                    GameState.PlayerCurrentDice,
+                    out bool hasValid
+                );
+
+                if (!hasValid)
+                {
+                    yield return new WaitForSeconds(1.0f);
+                    // Player Farkled
+                    GameState.PlayerUnbankedScore = 0;
+                    EndPlayerTurn();
+                    continue;
+                }
+
 
                 yield return new WaitUntil(() => GameState.TurnState != FarkleTurnState.PlayerTurn);
             }
@@ -83,7 +100,21 @@ public class FarkleGame : MonoBehaviour
                 BotDiceManager.SetDice(rolledDice);
 
                 float[] observation = GameState.GetObservation();
-                bool[] actionMask = GameState.GetBotActionMask();
+                bool[] actionMask = GameState.GetActionMask(
+                    GameState.BotDiceRemaining,
+                    GameState.BotCurrentDice,
+                    out bool hasValid
+                );
+
+                if (!hasValid)
+                {
+                    yield return new WaitForSeconds(1.0f);
+                    // Bot Farkled
+                    GameState.BotUnbankedScore = 0;
+                    EndBotTurn();
+                    continue;
+                }
+
 
                 int result = BotModelLoader.Predict(observation, actionMask);
                 bool bank = result <= 63;
@@ -93,6 +124,15 @@ public class FarkleGame : MonoBehaviour
                 List<int> chosenDice = new List<int>(ConvertToSelectedDice(indexes, GameState.BotCurrentDice));
                 if (FarkleGameState.TryCalculateScore(chosenDice, out int score))
                 {
+                    // Simulate Visuals for dice selection
+                    for (int i = 0; i < indexes.Length; i++)
+                    {
+                        print($"Bot Toggling: {indexes[i]}");
+                        print($"Bot Chose: {chosenDice[i]}");
+                        BotDiceManager.ToggleDice(indexes[i]);
+                        yield return new WaitForSeconds(0.5f);
+                    }
+
                     GameState.BotUnbankedScore += score;
                     GameState.BotDiceRemaining -= chosenDice.Count;
                     if (GameState.BotDiceRemaining <= 0)
@@ -179,9 +219,10 @@ public class FarkleGame : MonoBehaviour
 
     public void EndPlayerTurn()
     {
-        GameState.PlayerScore = GameState.PlayerUnbankedScore;
+        GameState.PlayerBankedScore += GameState.PlayerUnbankedScore;
         PlayerScoredThisTurn = false;
         GameState.TurnState = FarkleTurnState.BotTurn;
+        PlayerDiceManager.SpawnDice(0);
         GameState.ResetTurn();
     }
 
@@ -190,6 +231,7 @@ public class FarkleGame : MonoBehaviour
         GameState.BotBankedScore += GameState.BotUnbankedScore;
 
         GameState.TurnState = FarkleTurnState.PlayerTurn;
+        BotDiceManager.SpawnDice(0);
         GameState.ResetTurn();
     }
 
@@ -215,13 +257,39 @@ public class FarkleGameState
     public const int MaxDiceRolls = 6;
 
     // 1.  bot banked score
-    public int BotBankedScore = 0;
+    public int BotBankedScore
+    {
+        get { return _botBankedScore; }
+        set
+        {
+            if (_botBankedScore != value)
+            {
+                _botBankedScore = value;
+                OnBotBankedScoreChanged?.Invoke(_botBankedScore);
+            }
+        }
+    }
+    public Action<int> OnBotBankedScoreChanged;
+    public int _botBankedScore = 0;
     // 2.  bot unbanked score
     public int BotUnbankedScore = 0;
     // 3.  bot dice remaining
     public int BotDiceRemaining = 6;
     // 4.  player score
-    public int PlayerScore = 0;
+    public int PlayerBankedScore
+    {
+        get { return _playerBankedScore; }
+        set
+        {
+            if (_playerBankedScore != value)
+            {
+                _playerBankedScore = value;
+                OnPlayerBankedScoreChanged?.Invoke(_playerBankedScore);
+            }
+        }
+    }
+    public Action<int> OnPlayerBankedScoreChanged;
+    private int _playerBankedScore = 0;
     // 5.  bot dice 1
     // 6.  bot dice 2
     // 7.  bot dice 3
@@ -240,7 +308,7 @@ public class FarkleGameState
         BotBankedScore = 0;
         BotUnbankedScore = 0;
         BotDiceRemaining = MaxDiceRolls;
-        PlayerScore = 0;
+        PlayerBankedScore = 0;
         PlayerUnbankedScore = 0;
         PlayerDiceRemaining = MaxDiceRolls;
         TurnState = FarkleTurnState.PlayerTurn;
@@ -303,7 +371,7 @@ public class FarkleGameState
             BotBankedScore / (float)MaxScore,
             BotUnbankedScore / (float)MaxScore,
             BotDiceRemaining / (float)MaxDiceRolls,
-            PlayerScore / (float)MaxScore,
+            PlayerBankedScore / (float)MaxScore,
             BotCurrentDice[0] / 6f,
             BotCurrentDice[1] / 6f,
             BotCurrentDice[2] / 6f,
@@ -313,16 +381,16 @@ public class FarkleGameState
         };
     }
 
-    public bool[] GetBotActionMask()
+    public bool[] GetActionMask(int diceRemaining, int[] currentDice, out bool hasValid)
     {
         // 0-63: Select dice and bank
         // 64-127: Select dice and reroll
         const int actionCount = 128;
         const int rerollOffset = 64;
-
+        hasValid = false;
         bool[] actionMask = new bool[actionCount];
 
-        int diceCount = BotDiceRemaining;
+        int diceCount = diceRemaining;
 
         // Remove duplicates
         HashSet<string> seenSelections = new HashSet<string>();
@@ -331,13 +399,14 @@ public class FarkleGameState
 
         for (int subset = 1; subset < subsetLimit; subset++)
         {
-            List<int> selectedDice = GetSelectedBotDice(subset, diceCount);
+            List<int> selectedDice = GetSelectedDice(subset, diceCount, currentDice);
 
             bool valid = TryCalculateScore(selectedDice, out int score);
 
             if (!valid)
                 continue;
 
+            hasValid = true;
             // Same as python's 'tuple(sorted(dice_number))'
             selectedDice.Sort();
             string selectionSet = string.Join(",", selectedDice);
@@ -354,7 +423,7 @@ public class FarkleGameState
         return actionMask;
     }
 
-    private List<int> GetSelectedBotDice(int subset, int diceCount)
+    private List<int> GetSelectedDice(int subset, int diceCount, int[] currentDice)
     {
         List<int> selectedDice = new List<int>();
 
@@ -364,7 +433,7 @@ public class FarkleGameState
 
             if (isSelected)
             {
-                selectedDice.Add(BotCurrentDice[dieIndex]);
+                selectedDice.Add(currentDice[dieIndex]);
             }
         }
 
@@ -515,5 +584,4 @@ public class FarkleGameState
 
         return true;
     }
-
 }
