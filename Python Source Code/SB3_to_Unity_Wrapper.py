@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 from sb3_contrib import MaskablePPO
 
-MODEL_PATH = "farkle_pro_test.zip"
-ONNX_PATH = "farkle_policy.onnx"
+MODEL_PATH = "farkle_pro_v3.zip"
+ONNX_PATH = "farkle_policy_v4.onnx"
 
 class UnityMaskablePPOWrapper(nn.Module):
     def __init__(self, policy):
@@ -50,6 +50,21 @@ dummy_observation = torch.zeros(1, *observation_shape, dtype=torch.float32)
 
 dummy_action_mask = torch.ones(1, action_count, dtype=torch.float32)
 
+# torch.onnx.export(
+#     wrapper,
+#     (dummy_observation, dummy_action_mask),
+#     ONNX_PATH,
+#     input_names=[
+#         "observation",
+#         "action_mask"
+#     ],
+#     output_names=[
+#         "masked_logits"
+#     ],
+#     opset_version=15,
+#     do_constant_folding=True
+# )
+
 torch.onnx.export(
     wrapper,
     (dummy_observation, dummy_action_mask),
@@ -62,7 +77,13 @@ torch.onnx.export(
         "masked_logits"
     ],
     opset_version=15,
-    do_constant_folding=True
+    do_constant_folding=True,
+
+    # Critical for Unity Inference Engine 2.4.1
+    external_data=False,
+
+    # Keeps the legacy exporter and reliably honors opset 15
+    dynamo=False
 )
 
 print(f"Exported Model to {ONNX_PATH}")

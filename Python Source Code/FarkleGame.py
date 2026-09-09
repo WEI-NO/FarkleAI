@@ -13,7 +13,7 @@ import time
 
 env = Farkle()
 bot = MaskablePPO.load(
-    "farkle_pro",
+    "farkle_pro_test",
     env=env
 )
 
@@ -50,6 +50,8 @@ def _get_action_mask(env, current_dice_, num_rolls_):
         # Remove duplicate
         seen = set()
 
+        bank_scores = {}
+
         # Eliminate whether the subset is valid (Score or No Score)
         for i in range(1, dice_amt_mask):
 
@@ -68,8 +70,16 @@ def _get_action_mask(env, current_dice_, num_rolls_):
             # Eliminate invalid and seen selection
             if valid and current_seen not in seen:
                 seen.add(current_seen)
-                mask[i] = True
+                # mask[i] = True
                 mask[i + 64] = True
+                bank_scores[i] = score
+
+        if bank_scores:
+            best_score = max(bank_scores.values())
+
+            for i, score in bank_scores.items():
+                mask[i] = score == best_score
+                
 
         return mask
 

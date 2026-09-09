@@ -92,7 +92,7 @@ class Farkle(gym.Env):
         # Roll 6 dice
         # Store roll in current_dice
         # self._current_dice = self.roll_dice(self._dice_to_roll)
-        self._ensure_valid_roll_dice(self._dice_to_roll)
+        self.roll_dice(self._dice_to_roll)
         # return new game state
 
         observation = self._get_obs()
@@ -101,84 +101,113 @@ class Farkle(gym.Env):
         return observation, info
 
     def step(self, action):
-        # action = 0 - 127
-        # 0-63: index of selected subset - BANK - TRUE
-        # 64-127: index of selected subset - REROLL - FALSE
+        action = int(action)
+        mask = self.action_masks()
 
-        mask = self._get_action_mask(self._current_dice)
+        if action < 0 or action >= self.action_space.n or not mask[action]:
+            raise RuntimeError(
+                f"Selected invalid action {action}, dice={self._current_dice}"
+            )
 
-        # INVALID ACTION
-        if not mask[action]:
-            print(f"Chosen an invalid action: action {action} dice {self._current_dice}")
-            raise RuntimeError(f"Selected invalid action {action}, dice={self._current_dice}")
-
-        # Local States
         farkled = False
-        banked_score_this_turn = 0
         lost_unbanked = 0
+        banked_this_turn = 0
 
-        
-        # Translate the action into binary/int
-        binary, bank_or_roll = self.translate_action(action)
+        # Action 0 is enabled only when the current roll is a farkle.
+        if action == 0:
+            farkled = True
+            lost_unbanked = self._unbanked_score
+            self.end_player_turn(False)
 
-        # print(f"Banked or Roll: {bank_or_roll}")
-
-        # Retrieve the index of which dice it chose
-        chosen_index = self.binary_to_selection(binary)
-        # Chosen Dices
-        chosen_dice = self.selection_to_dice(chosen_index, self._current_dice)
-        valid, score = self.calculate_score(chosen_dice)
-
-        # print(f"Chosen Die: {chosen_dice}")
-        # print(f"Unbanked Score {self._unbanked_score} + score {score}")
-        
-        self._unbanked_score += score
-
-        if bank_or_roll:
-            # Bank
-            banked_score_this_turn = self._unbanked_score
-            self.end_player_turn(bank_current=True)
         else:
-            # Reroll
-            self._dice_to_roll -= len(chosen_dice)
-            if self._dice_to_roll == 0:
-                self._dice_to_roll = self._max_dice
-            self.roll_dice(self._dice_to_roll)
-            mask = self._get_action_mask(self._current_dice)
-            # Check if farkled
-            if not (True in mask):
-                lost_unbanked = self._unbanked_score
-                self.end_player_turn(bank_current=False) # Farkled
-                farkled = True
+            # Existing encoding:
+            # 0-63   = bank
+            # 64-127 = reroll
+            bank = action < 64
+            selection_mask = action if bank else action - 64
 
-        terminated = self._banked_score >= self._score_to_win or self._opponent_score >= self._score_to_win
+            selected_dice = [
+                self._current_dice[i]
+                for i in range(self._dice_to_roll)
+                if selection_mask & (1 << i)
+            ]
 
-        reward = self._get_reward(farkled, banked_score_this_turn, lost_unbanked)
+            valid, gained_score = self.calculate_score(selected_dice)
+
+            if not valid:
+                raise RuntimeError(
+                    f"Action {action} produced invalid selection "
+                    f"{selected_dice}, dice={self._current_dice}"
+                )
+
+            self._unbanked_score += gained_score
+
+            if bank:
+                banked_this_turn = self._unbanked_score
+                self.end_player_turn(True)
+
+            else:
+                self._dice_to_roll -= len(selected_dice)
+
+                # Hot dice
+                if self._dice_to_roll == 0:
+                    self._dice_to_roll = self._max_dice
+
+                self.roll_dice(self._dice_to_roll)
+
+                # Automatically process a farkle produced by the reroll.
+                if not self._get_action_mask(self._current_dice).any():
+                    farkled = True
+                    lost_unbanked = self._unbanked_score
+                    self.end_player_turn(False)
+
+        reward = self._get_reward(
+            farkled,
+            banked_this_turn,
+            lost_unbanked
+        )
+
+        terminated = (
+            self._banked_score >= self._score_to_win
+            or self._opponent_score >= self._score_to_win
+        )
 
         truncated = False
-
         observation = self._get_obs()
         info = self._get_info()
 
         return observation, reward, terminated, truncated, info
 
-    def _get_reward(self, farkled:bool, banked_this_turn, lost_unbanked):
-        reward = 0
-
-        if farkled:
-            reward -= (lost_unbanked*2) / self._score_to_win # Farkled
+    def _get_reward(self, farkled, banked_this_turn, lost_unbanked):
+        reward = banked_this_turn / self._score_to_win
 
         if self._opponent_score >= self._score_to_win:
             reward -= 1
             self._total_loses += 1
 
         if self._banked_score >= self._score_to_win:
-            reward += 1 # The bot wins
+            reward += 1
             self._total_wins += 1
 
-        reward += (banked_this_turn*2) / self._score_to_win # Amount banked this turn
-
         return reward
+
+    # def _get_reward(self, farkled:bool, banked_this_turn, lost_unbanked):
+    #     reward = 0
+
+    #     if farkled:
+    #         reward -= (lost_unbanked*2) / self._score_to_win # Farkled
+
+    #     if self._opponent_score >= self._score_to_win:
+    #         reward -= 1
+    #         self._total_loses += 1
+
+    #     if self._banked_score >= self._score_to_win:
+    #         reward += 1 # The bot wins
+    #         self._total_wins += 1
+
+    #     reward += (banked_this_turn*2) / self._score_to_win # Amount banked this turn
+
+    #     return reward
 
     def opponent_should_bank(self, unbanked_score, dice_remaining):
         if unbanked_score >= 500:
@@ -190,29 +219,27 @@ class Farkle(gym.Env):
         return False
 
     def end_player_turn(self, bank_current=False):
-        # Reset unbanked_score
-        # print(f"Ended Player Turn: Bank current {bank_current} banked: {self._unbanked_score}")
-        if bank_current: # Optional bank_current
+        if bank_current:
             self._banked_score += self._unbanked_score
-            self._unbanked_score = 0
+
             if self._banked_score >= self._score_to_win:
+                self._unbanked_score = 0
                 return
 
         self._unbanked_score = 0
-        self._dice_to_roll = self._max_dice
-        # Reset dice to roll
-        self._ensure_valid_roll_dice(self._dice_to_roll)
-
+        self._dice_to_roll = 6
 
         self._play_opponent_turn()
-        # print(f"Opponent Scored")
+
+        if self._opponent_score < self._score_to_win:
+            self.roll_dice(6)
 
     def _play_opponent_turn(self):
         if self._use_smart_opponent:
             while True:
                 self.roll_opponent_dice(self._opponent_dice_to_roll) # Opponent Rolls Dice
                 opponent_action_mask = self._get_action_mask(self._opponent_current_dice)
-                opponent_action_mask = opponent_action_mask[:63] # Slice action mask to include only information about possible selections
+                opponent_action_mask = opponent_action_mask[:64] # Slice action mask to include only information about possible selections
                 possible_choices = [x for x in range(len(opponent_action_mask)) if opponent_action_mask[x] == True] # Get the int of every True
 
                 if len(possible_choices) == 0:
@@ -231,6 +258,8 @@ class Farkle(gym.Env):
 
                 self._opponent_unbanked_score += score
                 self._opponent_dice_to_roll -= len(opponent_dice)
+                if (self._opponent_dice_to_roll <= 0):
+                    self._opponent_dice_to_roll = self._max_dice
 
                 if self.opponent_should_bank(self._opponent_unbanked_score, self._opponent_dice_to_roll):
                     # Opponent Banks
@@ -245,7 +274,13 @@ class Farkle(gym.Env):
             self._opponent_score += self._opponent_consistent_score 
 
     def action_masks(self):
-        return self._get_action_mask(self._current_dice)
+        mask = self._get_action_mask(self._current_dice)
+
+        # A farkle has no scoring subset. Give PPO one forced action.
+        if not mask.any():
+            mask[0] = True
+
+        return mask
 
     '''
         Possible Combinations: 6^6 = 46_656
@@ -407,7 +442,7 @@ class Farkle(gym.Env):
 
             # Remove duplicate
             seen = set()
-
+            bank_scores = {}
             # Eliminate whether the subset is valid (Score or No Score)
             for i in range(1, dice_amt_mask):
 
@@ -426,8 +461,15 @@ class Farkle(gym.Env):
                 # Eliminate invalid and seen selection
                 if valid and current_seen not in seen:
                     seen.add(current_seen)
-                    mask[i] = True
+                    # mask[i] = True
                     mask[i + 64] = True
+                    bank_scores[i] = score
+
+            if bank_scores:
+                best_score = max(bank_scores.values())
+
+                for i, score in bank_scores.items():
+                    mask[i] = score == best_score
 
             return mask
 

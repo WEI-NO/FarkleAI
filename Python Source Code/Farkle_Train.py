@@ -42,7 +42,7 @@ def train(timesteps:int, model_name:str="", new_model:bool=False):
         model = MaskablePPO(
             "MlpPolicy",
             train_env,
-
+            device="cpu",
             learning_rate=0.0001,
 
             # n_steps=2048,               # How many steps before learning update
@@ -67,21 +67,23 @@ def train(timesteps:int, model_name:str="", new_model:bool=False):
         # Train existing the model
         model = MaskablePPO.load(
             model_name,
+            device="cpu",
             env=train_env
         )
 
-    # eval_callback = MaskableEvalCallback(
-    #     eval_env,
-    #     best_model_save_path="./farkle_logs/best_model/",
-    #     log_path="./farkle_logs/results/",
-    #     eval_freq=5000,
-    #     deterministic=True,
-    #     render=False,
-    # )
+    eval_callback = MaskableEvalCallback(
+        eval_env,
+        best_model_save_path="./farkle_logs/best_model/",
+        log_path="./farkle_logs/results/",
+        eval_freq=10_000,
+        n_eval_episodes=100,
+        deterministic=True,
+        render=False,
+    )
 
     model.learn(
         total_timesteps=timesteps,
-        # callback=eval_callback,
+        callback=eval_callback,
     )
 
     print("Total Wins: ", train_env._total_wins)
@@ -89,6 +91,6 @@ def train(timesteps:int, model_name:str="", new_model:bool=False):
 
     model.save(model_name)
         
-train(1_000_000, "farkle_pro_test", new_model=True)
+train(1_000_000, "farkle_pro_v3", new_model=True)
 # train(env, 500_000, "farkle_pro", False)
 
