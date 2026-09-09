@@ -29,6 +29,8 @@ public class ONNXModelLoader : MonoBehaviour
 
     public int Predict(float[] observation, bool[] validActions)
     {
+        ValidateInputs(observation, validActions);
+
         var actionMask = ConvertMaskToFloats(validActions);
 
         using var observationTensor = new Tensor<float>(
@@ -46,7 +48,9 @@ public class ONNXModelLoader : MonoBehaviour
 
         worker.Schedule();
 
-        Tensor<float> outputTensor = worker.PeekOutput() as Tensor<float>;
+        Tensor<float> outputTensor = worker.PeekOutput("masked_logits") as Tensor<float>;
+
+        
 
         if (outputTensor == null)
         {
@@ -56,7 +60,7 @@ public class ONNXModelLoader : MonoBehaviour
 
         float[] actionScores = outputTensor.DownloadToArray();
 
-        return FindHighestScoreIndex(actionScores);
+        return FindHighestLegalScoreIndex(actionScores, validActions);
     }
 
 
@@ -116,13 +120,21 @@ public class ONNXModelLoader : MonoBehaviour
         return actionMask;
     }
 
-    private static int FindHighestScoreIndex(float[] actionScores)
+    private static int FindHighestLegalScoreIndex(
+        float[] actionScores,
+        bool[] validActions)
     {
-        int bestAction = 0;
-        float highestScore = actionScores[0];
+        int bestAction = -1;
+        float highestScore = float.NegativeInfinity;
 
-        for (int i = 1; i < actionScores.Length; i++)
+        for (int i = 0; i < actionScores.Length; i++)
         {
+            if (!validActions[i])
+                continue;
+
+            if (float.IsNaN(actionScores[i]))
+                continue;
+
             if (actionScores[i] > highestScore)
             {
                 highestScore = actionScores[i];
@@ -130,8 +142,16 @@ public class ONNXModelLoader : MonoBehaviour
             }
         }
 
+        if (bestAction == -1)
+        {
+            throw new InvalidOperationException(
+                "The model could not select a legal action."
+            );
+        }
+
         return bestAction;
     }
+
     private static void ValidateInputs(float[] observation, bool[] validActions)
     {
         if (observation == null)

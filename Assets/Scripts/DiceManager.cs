@@ -16,9 +16,16 @@ public class DiceManager : MonoBehaviour
 
     [SerializeField] private HashSet<int> chosenDiceIndex = new HashSet<int>();
 
-    public void SpawnDice(int count)
+    public void DestroyChildren()
     {
-        chosenDiceIndex.Clear();
+        foreach (Transform t in transform)
+        {
+            Destroy(t.gameObject);
+        }
+    }
+
+    public void DestroySpawnedDice()
+    {
         for (int i = spawnedDice.Count - 1; i >= 0; i--)
         {
             if (spawnedDice[i] != null)
@@ -28,6 +35,13 @@ public class DiceManager : MonoBehaviour
             }
             spawnedDice.RemoveAt(i);
         }
+    }
+
+    public void SpawnDice(int count)
+    {
+        DestroyChildren();
+        chosenDiceIndex.Clear();
+        DestroySpawnedDice();
 
         float halfXOffset = (count / 2) * XSpacing - (count % 2 == 0 ? XSpacing / 2 : 0);
         Vector2 spawnOrigin = new Vector2(SpawnOrigin.x - halfXOffset, SpawnOrigin.y);
@@ -81,12 +95,15 @@ public class DiceManager : MonoBehaviour
 
     public void Score()
     {
-        farkleGame.ScorePlayerDice(chosenDiceIndex.ToArray());
-        foreach (int i in chosenDiceIndex)
+        if (farkleGame.ScorePlayerDice(chosenDiceIndex.ToArray()))
         {
-            spawnedDice[i].SetSelected(false);
+            foreach (int i in chosenDiceIndex)
+            {
+                spawnedDice[i].SetSelected(false);
+                spawnedDice[i].SetFace(0, i);
+            }
+            chosenDiceIndex.Clear();
         }
-        chosenDiceIndex.Clear();
     }
 
     public void Bank()

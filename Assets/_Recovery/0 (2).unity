@@ -238,7 +238,6 @@ MonoBehaviour:
     PlayerCurrentDice: 000000000000000000000000000000000000000000000000
     PlayerDiceRemaining: 6
     TurnState: 0
-  diceManager: {fileID: 56105605}
   PlayerScoredThisTurn: 0
 --- !u!4 &202168431
 Transform:
