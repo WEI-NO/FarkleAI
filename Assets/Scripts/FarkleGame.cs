@@ -15,7 +15,10 @@ public enum FarkleTurnState
 
 public class FarkleGame : MonoBehaviour
 {
+    public static FarkleGame Instance;
+
     public int Seed = 42;
+    public bool UseSeed = false;
 
     [Header("Bot")]
     public ONNXModelLoader BotModelLoader;
@@ -24,6 +27,7 @@ public class FarkleGame : MonoBehaviour
     public FarkleGameState GameState = new FarkleGameState();
     public DiceManager diceManager;
     public Animator farkledAnim;
+    public EndScreenController endScreen;
 
 
 
@@ -35,10 +39,15 @@ public class FarkleGame : MonoBehaviour
     public Action<int[], FarkleTurnState> OnRolledDice;
     public Action<bool> OnPlayerScoredThisTurn;
 
+    private void Awake()
+    {
+        Instance = this;
+    }
 
     public void Start()
     {
-        UnityEngine.Random.InitState(Seed);
+        if (UseSeed)
+            UnityEngine.Random.InitState(Seed);
 
         StartGame();
 
@@ -52,6 +61,9 @@ public class FarkleGame : MonoBehaviour
 
     private IEnumerator GameLoop()
     {
+        yield return new WaitForSeconds(0.5f);
+        OnTurnChange?.Invoke(FarkleGameState.TurnState);
+
         while (GameState.PlayerBankedScore < FarkleGameState.MaxScore && GameState.BotBankedScore < FarkleGameState.MaxScore)
         {
             if (FarkleGameState.TurnState == FarkleTurnState.PlayerTurn)
@@ -142,6 +154,18 @@ public class FarkleGame : MonoBehaviour
 
             }
         }
+
+        //if (GameState.PlayerBankedScore >= FarkleGameState.MaxScore)
+        //{
+        //    // Player Won
+        //} else if (GameState.BotBankedScore >= FarkleGameState.MaxScore)
+        //{
+        //    // Bot Won
+
+        //}
+
+        endScreen.Show(GameState);
+
         yield return null;
     }
 
@@ -258,7 +282,7 @@ public class FarkleGame : MonoBehaviour
 [System.Serializable]
 public class FarkleGameState
 {
-    public const int MaxScore = 10000;
+    public const int MaxScore = 1000;
     public const int MaxDiceRolls = 6;
 
     // 1.  bot banked score

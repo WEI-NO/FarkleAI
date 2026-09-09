@@ -35,7 +35,7 @@ public class ActionController : MonoBehaviour
         bankText.color = state ? enableTextColor : disableButtonColor;
         rerollText.color = state ? enableTextColor : disableButtonColor;
 
-        scoreButton.interactable = state;
+        scoreButton.interactable = !state;
         bankButton.interactable = state;
         rerollButton.interactable = state;
     }

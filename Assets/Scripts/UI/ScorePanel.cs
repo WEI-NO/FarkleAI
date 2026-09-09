@@ -7,6 +7,20 @@ public class ScorePanel : MonoBehaviour
     [SerializeField] private TextMeshProUGUI bankedDisplay;
     [SerializeField] private TextMeshProUGUI unbankedDisplay;
 
+    [SerializeField] private GameObject highlight;
+    public FarkleTurnState EnableState;
+
+
+    private void Start()
+    {
+        FarkleGame.Instance.OnTurnChange += OnTurnChange;
+    }
+
+    private void OnTurnChange(FarkleTurnState state)
+    {
+        highlight.SetActive(state == EnableState);
+    }
+
     public void SetBankedScore(int score)
     {
         bankedDisplay.text = score.ToString();
