@@ -34,6 +34,10 @@ public class ActionController : MonoBehaviour
         scoreText.color = state ? disableTextColor : enableTextColor;
         bankText.color = state ? enableTextColor : disableButtonColor;
         rerollText.color = state ? enableTextColor : disableButtonColor;
+
+        scoreButton.interactable = state;
+        bankButton.interactable = state;
+        rerollButton.interactable = state;
     }
 
     public void OnTurnChange(FarkleTurnState state)
@@ -48,6 +52,10 @@ public class ActionController : MonoBehaviour
             scoreText.color = enableTextColor;
             bankText.color = disableTextColor;
             rerollText.color = disableTextColor;
+
+            scoreButton.interactable = true;
+            bankButton.interactable = false;
+            rerollButton.interactable = false;
         } else
         {
             print("turn bot");
@@ -58,6 +66,10 @@ public class ActionController : MonoBehaviour
             scoreText.color = disableTextColor;
             bankText.color = disableTextColor;
             rerollText.color = disableTextColor;
+
+            scoreButton.interactable = false;
+            bankButton.interactable = false;
+            rerollButton.interactable = false;
         }
     }
 }

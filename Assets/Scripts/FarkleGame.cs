@@ -2,8 +2,10 @@ using JetBrains.Annotations;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Rendering.UI;
 
 public enum FarkleTurnState
 {
@@ -21,12 +23,13 @@ public class FarkleGame : MonoBehaviour
     [Header("Game States")]
     public FarkleGameState GameState = new FarkleGameState();
     public DiceManager diceManager;
+    public Animator farkledAnim;
 
 
-    [Header("Game Events")]
-    public bool PlayerScoredThisTurn = false;
 
     [Header("Events")]
+    public bool RefreshPlayerTurn = false;
+    public bool PlayerScoredThisTurn = false;
     // Turn Change
     public Action<FarkleTurnState> OnTurnChange;
     public Action<int[], FarkleTurnState> OnRolledDice;
@@ -51,8 +54,9 @@ public class FarkleGame : MonoBehaviour
     {
         while (GameState.PlayerBankedScore < FarkleGameState.MaxScore && GameState.BotBankedScore < FarkleGameState.MaxScore)
         {
-            if (GameState.TurnState == FarkleTurnState.PlayerTurn)
+            if (FarkleGameState.TurnState == FarkleTurnState.PlayerTurn)
             {
+                RefreshPlayerTurn = false;
                 // Player's turn logic here
                 // Wait for player input or actions
                 int[] rolledDice = GameState.RollPlayerDice(GameState.PlayerDiceRemaining);
@@ -60,14 +64,12 @@ public class FarkleGame : MonoBehaviour
                 //PlayerDiceManager.SpawnDice(rolledDice.Length);
                 //PlayerDiceManager.SetDice(rolledDice);
 
-                bool[] actionMask = GameState.GetActionMask(
-                    GameState.PlayerDiceRemaining,
-                    GameState.PlayerCurrentDice,
-                    out bool hasValid
-                );
+                bool playerFarkled = CheckPlayerFarkled();
 
-                if (!hasValid)
+                if (playerFarkled)
                 {
+                    print("PLAYER FARKLED");
+                    farkledAnim.SetTrigger("Show");
                     yield return new WaitForSeconds(3.0f);
                     // Player Farkled
                     GameState.PlayerUnbankedScore = 0;
@@ -76,9 +78,9 @@ public class FarkleGame : MonoBehaviour
                 }
 
 
-                yield return new WaitUntil(() => GameState.TurnState != FarkleTurnState.PlayerTurn);
+                yield return new WaitUntil(() => FarkleGameState.TurnState != FarkleTurnState.PlayerTurn || RefreshPlayerTurn == true);
             }
-            else if (GameState.TurnState == FarkleTurnState.BotTurn)
+            else if (FarkleGameState.TurnState == FarkleTurnState.BotTurn)
             {
                 // Bot's turn logic here
                 // Simulate bot actions
@@ -98,6 +100,7 @@ public class FarkleGame : MonoBehaviour
                 if (!hasValid)
                 {
                     print("BOT FARKLED");
+                    farkledAnim.SetTrigger("Show");
                     yield return new WaitForSeconds(3.0f);
                     // Bot Farkled
                     GameState.BotUnbankedScore = 0;
@@ -145,24 +148,30 @@ public class FarkleGame : MonoBehaviour
     public void ResetGame()
     {
         GameState.Reset();
-        OnTurnChange?.Invoke(GameState.TurnState);
+        OnTurnChange?.Invoke(FarkleGameState.TurnState);
+    }
+
+    private bool CheckPlayerFarkled()
+    {
+        bool[] actionMask = GameState.GetActionMask(
+            GameState.PlayerDiceRemaining,
+            GameState.PlayerCurrentDice,
+            out bool hasValid
+        );
+
+        return !hasValid;
     }
 
     public bool RerollPlayerDice()
     {
-        if (!PlayerScoredThisTurn) return false;
+        if (!PlayerScoredThisTurn || GameState.PlayerDiceRemaining <= 0)
+            return false;
 
-        if (GameState.PlayerDiceRemaining > 0)
-        {    
-            var rolledDice = GameState.RollPlayerDice(GameState.PlayerDiceRemaining);
-            //PlayerDiceManager.SpawnDice(rolledDice.Length);
-            //PlayerDiceManager.SetDice(rolledDice);
-            OnRolledDice?.Invoke(rolledDice, FarkleTurnState.PlayerTurn);
-            PlayerScoredThisTurn = false;
-            OnPlayerScoredThisTurn?.Invoke(false);
-            return true;
-        }
-        return false;
+        PlayerScoredThisTurn = false;
+        OnPlayerScoredThisTurn?.Invoke(false);
+
+        RefreshPlayerTurn = true;
+        return true;
     }
 
     public bool BankPlayerScore()
@@ -215,8 +224,8 @@ public class FarkleGame : MonoBehaviour
     {
         GameState.PlayerBankedScore += GameState.PlayerUnbankedScore;
         PlayerScoredThisTurn = false;
-        GameState.TurnState = FarkleTurnState.BotTurn;
-        OnTurnChange?.Invoke(GameState.TurnState);
+        FarkleGameState.TurnState = FarkleTurnState.BotTurn;
+        OnTurnChange?.Invoke(FarkleGameState.TurnState);
         //PlayerDiceManager.SpawnDice(0);
         GameState.ResetTurn();
     }
@@ -225,8 +234,8 @@ public class FarkleGame : MonoBehaviour
     {
         GameState.BotBankedScore += GameState.BotUnbankedScore;
 
-        GameState.TurnState = FarkleTurnState.PlayerTurn;
-        OnTurnChange?.Invoke(GameState.TurnState);
+        FarkleGameState.TurnState = FarkleTurnState.PlayerTurn;
+        OnTurnChange?.Invoke(FarkleGameState.TurnState);
         //BotDiceManager.SpawnDice(0);
         GameState.ResetTurn();
     }
@@ -323,7 +332,7 @@ public class FarkleGameState
     }
     public Action<int> OnPlayerUnbankedScoreChanged;
     private int _playerUnbankedScore = 0;
-    public FarkleTurnState TurnState = FarkleTurnState.PlayerTurn;
+    public static FarkleTurnState TurnState = FarkleTurnState.PlayerTurn;
 
     public Action OnGameReset;
 

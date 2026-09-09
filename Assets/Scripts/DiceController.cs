@@ -61,7 +61,10 @@ public class DiceController : MonoBehaviour, IPointerClickHandler
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        ToggleSelect();
+        if (FarkleGameState.TurnState == FarkleTurnState.PlayerTurn)
+        {
+            ToggleSelect();
+        }
         //print("Clicked " + DiceIndex.ToString());
     }
 }
