@@ -10992,7 +10992,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5ba5de44501dbe849ae943250171e60d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ONNXModelLoader
-  onnxModel: {fileID: 5022602860645237092, guid: 899c750fc0b87794298dd78766fd5f89, type: 3}
+  onnxModel: {fileID: 5022602860645237092, guid: 79186c4a811022f409dab794c46ee80e, type: 3}
 --- !u!4 &1898891688
 Transform:
   m_ObjectHideFlags: 0

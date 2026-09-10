@@ -282,7 +282,7 @@ public class FarkleGame : MonoBehaviour
 [System.Serializable]
 public class FarkleGameState
 {
-    public const int MaxScore = 1000;
+    public const int MaxScore = 10000;
     public const int MaxDiceRolls = 6;
 
     // 1.  bot banked score
