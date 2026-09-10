@@ -308,7 +308,6 @@ class Farkle(gym.Env):
 
     def translate_action(self, action):
         # Returns DICE_SET, BANK/ROLL
-        subset_index = action
         bank_or_roll = True # True = Bank, False = Reroll
         if action >= 64:
             # Reroll
@@ -376,6 +375,7 @@ class Farkle(gym.Env):
                 score += 1000
                 scoring_dice += 4
             # Three of a kind / e.g. 5 5 5 2 3 4 { 5:3, 2:1, 3:1, 4:1 }
+
             elif count == 3:
                 if dice == 1:
                     score += 300
@@ -410,12 +410,9 @@ class Farkle(gym.Env):
     
     def binary_to_selection(self, binary):
         indexes = []
-        # 10100
         for i in range(self._max_dice):
             if (binary & (1 << i)):
                 indexes.append(i)
-        # print(f"Integer: {binary}, Binary View: {bin(binary)}")
-        # print(f"Chosen Index: {indexes}")
         return indexes
 
     def selection_to_dice(self, selection: list[int], current_dice : list[int]):
@@ -428,12 +425,6 @@ class Farkle(gym.Env):
         return dice_number_list
 
     def _get_action_mask(self, current_dice: list[int]):
-            ''' --- OLD IMPLEMENTATION ---
-                LENGTH = 128
-                MIDPOINT = 64
-                mask[dice_amt_mask:MIDPOINT] = False
-                mask[dice_amt_mask + MIDPOINT:LENGTH] = False
-            '''
             # Create an all False mask
             mask = np.zeros(128, dtype=bool)
             

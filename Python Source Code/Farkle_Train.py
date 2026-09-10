@@ -18,14 +18,10 @@ import torch
 #
 # value_loss            : error from training
 
-# Check if the environment sees your NVIDIA graphics card
 print("GPU Available:", torch.cuda.is_available())
 
 if torch.cuda.is_available():
-    # Print the name of your graphics card
     print("Device Name:", torch.cuda.get_device_name(0))
-    
-    # Explicitly assign your tensor operations to the GPU
     device = torch.device("cuda")
     x = torch.rand(3, 3).to(device)
     print("Tensor is running on:", x.device)
@@ -43,18 +39,18 @@ def train(timesteps:int, model_name:str="", new_model:bool=False):
             "MlpPolicy",
             train_env,
             device="cpu",
-            learning_rate=0.0001,
+            learning_rate=0.0003,
 
             # n_steps=2048,               # How many steps before learning update
             # batch_size=128,             # How many samples it trains on per learning update
-            # n_epochs=10,                # How much epochs to run before training
+            # n_epochs=10,                # Number of times network trains on batches of a collected experience.
             
             # gamma=0.99,                 # How much agent focuses on future rewards (0 - 1)
-            # gae_lambda=0.95,            # How much each action is creditted for a Win or Reward
+            gae_lambda=0.5,            # How much the network looks ahead to credit its action.
             # clip_range=0.2,             # Lower = less influence on each batch/samples | Higher = changes more aggressively
             # clip_range_vf=None,         
             # normalize_advantage=True,
-            # ent_coef=0,                 # Adds randomness to decisions
+            # ent_coef=0.01,                 # Adds randomness to decisions
             # vf_coef=0.5,                
             # max_grad_norm=0.5,          # Clamps the gradient update to this value
             # target_kl=None,
@@ -86,11 +82,12 @@ def train(timesteps:int, model_name:str="", new_model:bool=False):
         callback=eval_callback,
     )
 
+    total = train_env._total_wins + train_env._total_loses
     print("Total Wins: ", train_env._total_wins)
     print("Total Loses: ", train_env._total_loses)
+    print("win %: ", (train_env._total_wins / total) * 100)
 
     model.save(model_name)
         
-train(1_000_000, "farkle_pro_v3", new_model=True)
-# train(env, 500_000, "farkle_pro", False)
+train(700_000, "farkle_model_v5", new_model=True)
 

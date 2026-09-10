@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 from sb3_contrib import MaskablePPO
 
-MODEL_PATH = "farkle_pro_v3.zip"
-ONNX_PATH = "farkle_policy_v4.onnx"
+MODEL_PATH = "farkle_model_v5.zip"
+ONNX_PATH = "farkle_policy_v5.onnx"
 
 class UnityMaskablePPOWrapper(nn.Module):
     def __init__(self, policy):
