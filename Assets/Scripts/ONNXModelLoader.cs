@@ -50,8 +50,6 @@ public class ONNXModelLoader : MonoBehaviour
 
         Tensor<float> outputTensor = worker.PeekOutput("masked_logits") as Tensor<float>;
 
-        
-
         if (outputTensor == null)
         {
             Debug.LogError("Failed to get output tensor from the model.");
